@@ -1,4 +1,4 @@
-use crate::output::{ModuleNode, ModulesOutput};
+use crate::output::{ClassInfo, ClassMap, ModuleNode, ModulesOutput};
 use std::collections::BTreeMap;
 
 /// Extract the subject name from a function signature
@@ -174,23 +174,20 @@ where
     result
 }
 
-/// Filter classes output (file -> (class_sig -> (method_sig -> line))) by patterns.
+/// Filter classes output (file -> (class_sig -> ClassInfo)) by patterns.
 /// Applies cascading match logic GLOBALLY across all files, not per-file.
-pub fn filter_classes_output(
-    files: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>>,
-    patterns: &[String],
-) -> BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> {
+pub fn filter_classes_output(files: BTreeMap<String, ClassMap>, patterns: &[String]) -> BTreeMap<String, ClassMap> {
     if patterns.is_empty() {
         return files;
     }
 
-    // Flatten all class entries: (file_path, class_sig, methods, extracted_name)
-    let all_entries: Vec<(String, String, BTreeMap<String, usize>, String)> = files
+    // Flatten all class entries: (file_path, class_sig, class_info, extracted_name)
+    let all_entries: Vec<(String, String, ClassInfo, String)> = files
         .into_iter()
         .flat_map(|(file_path, classes)| {
-            classes.into_iter().map(move |(class_sig, methods)| {
+            classes.into_iter().map(move |(class_sig, class_info)| {
                 let name = extract_class_name(&class_sig).to_string();
-                (file_path.clone(), class_sig, methods, name)
+                (file_path.clone(), class_sig, class_info, name)
             })
         })
         .collect();
@@ -208,11 +205,11 @@ pub fn filter_classes_output(
     }
 
     // Re-group by file, filtering to only matching names
-    let mut result: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> = BTreeMap::new();
+    let mut result: BTreeMap<String, ClassMap> = BTreeMap::new();
 
-    for (file_path, class_sig, methods, name) in all_entries {
+    for (file_path, class_sig, class_info, name) in all_entries {
         if matching_names.contains(&name) {
-            result.entry(file_path).or_default().insert(class_sig, methods);
+            result.entry(file_path).or_default().insert(class_sig, class_info);
         }
     }
 
@@ -647,24 +644,42 @@ mod tests {
 
     // ==================== Classes Output Filter Tests ====================
 
-    fn make_classes_output() -> BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> {
+    fn make_classes_output() -> BTreeMap<String, ClassMap> {
         let mut files = BTreeMap::new();
 
-        let mut file1_classes = BTreeMap::new();
+        let mut file1_classes = ClassMap::new();
         let mut user_methods = BTreeMap::new();
         user_methods.insert("def create(self) -> User".to_string(), 10);
-        file1_classes.insert("class UserService".to_string(), user_methods);
+        file1_classes.insert(
+            "class UserService".to_string(),
+            ClassInfo {
+                fields: BTreeMap::new(),
+                methods: user_methods,
+            },
+        );
 
         let mut admin_methods = BTreeMap::new();
         admin_methods.insert("def delete(self) -> None".to_string(), 20);
-        file1_classes.insert("class AdminService".to_string(), admin_methods);
+        file1_classes.insert(
+            "class AdminService".to_string(),
+            ClassInfo {
+                fields: BTreeMap::new(),
+                methods: admin_methods,
+            },
+        );
 
         files.insert("src/services.py".to_string(), file1_classes);
 
-        let mut file2_classes = BTreeMap::new();
+        let mut file2_classes = ClassMap::new();
         let mut product_methods = BTreeMap::new();
         product_methods.insert("def list(self) -> list".to_string(), 10);
-        file2_classes.insert("class ProductManager".to_string(), product_methods);
+        file2_classes.insert(
+            "class ProductManager".to_string(),
+            ClassInfo {
+                fields: BTreeMap::new(),
+                methods: product_methods,
+            },
+        );
         files.insert("src/products.py".to_string(), file2_classes);
 
         files

@@ -1,9 +1,6 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-/// Type alias for nested class structure: class_signature -> (method_signature -> line_number)
-pub type ClassMethodMap = BTreeMap<String, BTreeMap<String, usize>>;
-
 /// Top-level output for functions/enums commands
 /// Format:
 ///   files:
@@ -14,15 +11,30 @@ pub struct FilesOutput {
     pub files: BTreeMap<String, BTreeMap<String, usize>>,
 }
 
+/// Information about a single class
+#[derive(Debug, Serialize, Default, Clone)]
+pub struct ClassInfo {
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, usize>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub methods: BTreeMap<String, usize>,
+}
+
+/// Type alias for class map: class_signature -> ClassInfo
+pub type ClassMap = BTreeMap<String, ClassInfo>;
+
 /// Top-level output for classes command
 /// Format:
 ///   files:
 ///     <filepath>:
-///       <class_name>:
-///         <method_signature>: lineno
+///       <class_signature>:
+///         fields:
+///           <field_name>: lineno
+///         methods:
+///           <method_signature>: lineno
 #[derive(Debug, Serialize, Default)]
 pub struct ClassesOutput {
-    pub files: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>>,
+    pub files: BTreeMap<String, ClassMap>,
 }
 
 /// Top-level output for modules command
@@ -41,7 +53,7 @@ pub struct ModuleNode {
     pub children: BTreeMap<String, ModuleNode>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ModuleType {
     Package,

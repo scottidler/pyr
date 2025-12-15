@@ -50,3 +50,145 @@ pub fn extract_functions(path: &Path) -> Result<BTreeMap<String, usize>> {
 
     Ok(functions)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn fixtures_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+    }
+
+    #[test]
+    fn test_extract_functions_simple() {
+        let path = fixtures_dir().join("functions.py");
+        let result = extract_functions(&path);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(!functions.is_empty());
+    }
+
+    #[test]
+    fn test_extract_functions_contains_simple_function() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        let has_simple = functions.keys().any(|k| k.contains("simple_function"));
+        assert!(has_simple, "Should contain simple_function");
+    }
+
+    #[test]
+    fn test_extract_functions_async() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        let has_async = functions.keys().any(|k| k.starts_with("async def"));
+        assert!(has_async, "Should contain async functions");
+    }
+
+    #[test]
+    fn test_extract_functions_with_types() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        let typed = functions.keys().find(|k| k.contains("function_with_types"));
+        assert!(typed.is_some());
+        let sig = typed.unwrap();
+        assert!(sig.contains("x: int"));
+        assert!(sig.contains("y: str"));
+        assert!(sig.contains("-> bool"));
+    }
+
+    #[test]
+    fn test_extract_functions_with_varargs() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        let varargs = functions.keys().find(|k| k.contains("function_with_varargs"));
+        assert!(varargs.is_some());
+        let sig = varargs.unwrap();
+        assert!(sig.contains("*args"));
+        assert!(sig.contains("**kwargs"));
+    }
+
+    #[test]
+    fn test_extract_functions_line_numbers() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        // All line numbers should be positive
+        for (_, line) in &functions {
+            assert!(*line > 0);
+        }
+    }
+
+    #[test]
+    fn test_extract_functions_empty_file() {
+        let path = fixtures_dir().join("empty.py");
+        let functions = extract_functions(&path).unwrap();
+        assert!(functions.is_empty());
+    }
+
+    #[test]
+    fn test_extract_functions_mixed_file() {
+        let path = fixtures_dir().join("mixed.py");
+        let functions = extract_functions(&path).unwrap();
+
+        // Should contain top-level functions but not methods
+        let has_helper = functions.keys().any(|k| k.contains("helper_function"));
+        let has_fetch = functions.keys().any(|k| k.contains("fetch_data"));
+        let has_compute = functions.keys().any(|k| k.contains("compute_result"));
+
+        assert!(has_helper, "Should contain helper_function");
+        assert!(has_fetch, "Should contain fetch_data");
+        assert!(has_compute, "Should contain compute_result");
+
+        // Should NOT contain methods (they belong to classes)
+        // 'process' is a method inside DataProcessor class, not a top-level function
+        let has_process_method = functions.keys().any(|k| k == "def process(self) -> List[int]");
+        assert!(
+            !has_process_method,
+            "Should NOT contain class methods as top-level functions"
+        );
+    }
+
+    #[test]
+    fn test_extract_functions_private() {
+        let path = fixtures_dir().join("functions.py");
+        let functions = extract_functions(&path).unwrap();
+
+        let has_private = functions.keys().any(|k| k.contains("_private_function"));
+        assert!(has_private, "Should contain _private_function");
+    }
+
+    #[test]
+    fn test_build_function_signature_sync() {
+        let args = Arguments {
+            args: vec![],
+            posonlyargs: vec![],
+            vararg: None,
+            kwonlyargs: vec![],
+            kwarg: None,
+            range: Default::default(),
+        };
+
+        let sig = build_function_signature("test", &args, Some("int".to_string()), false);
+        assert_eq!(sig, "def test() -> int");
+    }
+
+    #[test]
+    fn test_build_function_signature_async() {
+        let args = Arguments {
+            args: vec![],
+            posonlyargs: vec![],
+            vararg: None,
+            kwonlyargs: vec![],
+            kwarg: None,
+            range: Default::default(),
+        };
+
+        let sig = build_function_signature("test", &args, None, true);
+        assert_eq!(sig, "async def test()");
+    }
+}

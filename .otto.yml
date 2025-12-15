@@ -29,6 +29,12 @@ tasks:
     bash: |
       cargo test
 
+  cov:
+    help: "Run tests with coverage via tarpaulin"
+    after: [check]
+    bash: |
+      cargo tarpaulin --workspace --timeout 120
+
   coverage:
     help: "Generate code coverage report with cargo-tarpaulin"
     bash: |
@@ -40,8 +46,8 @@ tasks:
       echo "  - LCOV: target/lcov.info"
 
   ci:
-    help: "Full CI pipeline (check + test in parallel)"
-    before: [lint, check, test]
+    help: "Full CI pipeline (check + cov in parallel)"
+    before: [lint, check, cov]
     bash: |
       echo "✅ All CI checks passed!"
 
@@ -50,3 +56,4 @@ tasks:
     bash: |
       cargo clean
       echo "✅ Cleaned!"
+
