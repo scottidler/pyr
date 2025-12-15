@@ -9,10 +9,12 @@ mod analysis;
 mod cli;
 mod output;
 mod parser;
+mod pattern;
 mod walk;
 
 use cli::{Cli, Command};
 use output::{ClassMethodMap, ClassesOutput, FilesOutput, output, should_use_json};
+use pattern::{extract_class_name, extract_function_name, filter_classes_output, filter_files_output};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -20,48 +22,48 @@ fn main() -> Result<()> {
     let paths = &cli.paths;
 
     match &cli.command {
-        Command::Functions => run_functions(paths, cli.alphabetical, use_json),
-        Command::Classes => run_classes(paths, cli.alphabetical, use_json),
-        Command::Enums => run_enums(paths, cli.alphabetical, use_json),
-        Command::Modules => run_modules(paths, use_json),
-        Command::Dump => run_dump(paths, cli.alphabetical, use_json),
+        Command::Function { patterns } => run_functions(paths, patterns, cli.alphabetical, use_json),
+        Command::Class { patterns } => run_classes(paths, patterns, cli.alphabetical, use_json),
+        Command::Enum { patterns } => run_enums(paths, patterns, cli.alphabetical, use_json),
+        Command::Module { patterns } => run_modules(paths, patterns, use_json),
+        Command::Dump { patterns } => run_dump(paths, patterns, cli.alphabetical, use_json),
     }
 }
 
-fn run_functions(targets: &[PathBuf], _alphabetical: bool, use_json: bool) -> Result<()> {
+fn run_functions(targets: &[PathBuf], patterns: &[String], _alphabetical: bool, use_json: bool) -> Result<()> {
     let files = walk::collect_python_files(targets)?;
-    let result = FilesOutput {
-        files: process_files_parallel(&files, |path| {
-            let functions = analysis::extract_functions(path).ok()?;
-            if functions.is_empty() { None } else { Some(functions) }
-        }),
-    };
+    let collected = process_files_parallel(&files, |path| {
+        let functions = analysis::extract_functions(path).ok()?;
+        if functions.is_empty() { None } else { Some(functions) }
+    });
+    let filtered = filter_files_output(collected, patterns, extract_function_name);
+    let result = FilesOutput { files: filtered };
     output(&result, use_json)
 }
 
-fn run_classes(targets: &[PathBuf], _alphabetical: bool, use_json: bool) -> Result<()> {
+fn run_classes(targets: &[PathBuf], patterns: &[String], _alphabetical: bool, use_json: bool) -> Result<()> {
     let files = walk::collect_python_files(targets)?;
-    let result = ClassesOutput {
-        files: process_classes_parallel(&files, |path| {
-            let classes = analysis::extract_classes(path).ok()?;
-            if classes.is_empty() { None } else { Some(classes) }
-        }),
-    };
+    let collected = process_classes_parallel(&files, |path| {
+        let classes = analysis::extract_classes(path).ok()?;
+        if classes.is_empty() { None } else { Some(classes) }
+    });
+    let filtered = filter_classes_output(collected, patterns);
+    let result = ClassesOutput { files: filtered };
     output(&result, use_json)
 }
 
-fn run_enums(targets: &[PathBuf], _alphabetical: bool, use_json: bool) -> Result<()> {
+fn run_enums(targets: &[PathBuf], patterns: &[String], _alphabetical: bool, use_json: bool) -> Result<()> {
     let files = walk::collect_python_files(targets)?;
-    let result = FilesOutput {
-        files: process_files_parallel(&files, |path| {
-            let enums = analysis::extract_enums(path).ok()?;
-            if enums.is_empty() { None } else { Some(enums) }
-        }),
-    };
+    let collected = process_files_parallel(&files, |path| {
+        let enums = analysis::extract_enums(path).ok()?;
+        if enums.is_empty() { None } else { Some(enums) }
+    });
+    let filtered = filter_files_output(collected, patterns, extract_class_name);
+    let result = FilesOutput { files: filtered };
     output(&result, use_json)
 }
 
-fn run_modules(targets: &[PathBuf], use_json: bool) -> Result<()> {
+fn run_modules(targets: &[PathBuf], patterns: &[String], use_json: bool) -> Result<()> {
     let files = walk::collect_python_files(targets)?;
 
     // Use the first target as base path, or current dir
@@ -77,39 +79,40 @@ fn run_modules(targets: &[PathBuf], use_json: bool) -> Result<()> {
         .unwrap_or_else(|| PathBuf::from("."));
 
     let result = analysis::build_module_tree(&files, &base_path);
-    output(&result, use_json)
+    let filtered = pattern::filter_modules_output(result, patterns);
+    output(&filtered, use_json)
 }
 
-fn run_dump(targets: &[PathBuf], _alphabetical: bool, use_json: bool) -> Result<()> {
+fn run_dump(targets: &[PathBuf], patterns: &[String], _alphabetical: bool, use_json: bool) -> Result<()> {
     let files = walk::collect_python_files(targets)?;
-    let result = FilesOutput {
-        files: process_files_parallel(&files, |path| {
-            let mut all_entries = BTreeMap::new();
+    let collected = process_files_parallel(&files, |path| {
+        let mut all_entries = BTreeMap::new();
 
-            if let Ok(functions) = analysis::extract_functions(path) {
-                all_entries.extend(functions);
-            }
-            // Flatten classes: prefix method signatures with class name
-            if let Ok(classes) = analysis::extract_classes(path) {
-                for (class_sig, methods) in classes {
-                    // Extract class name from signature (e.g., "class Foo" -> "Foo")
-                    let class_name = class_sig
-                        .strip_prefix("class ")
-                        .and_then(|s| s.split('(').next())
-                        .unwrap_or(&class_sig);
-                    for (method_sig, line) in methods {
-                        let full_sig = format!("{}.{}", class_name, method_sig);
-                        all_entries.insert(full_sig, line);
-                    }
+        if let Ok(functions) = analysis::extract_functions(path) {
+            all_entries.extend(functions);
+        }
+        // Flatten classes: prefix method signatures with class name
+        if let Ok(classes) = analysis::extract_classes(path) {
+            for (class_sig, methods) in classes {
+                // Extract class name from signature (e.g., "class Foo" -> "Foo")
+                let class_name = class_sig
+                    .strip_prefix("class ")
+                    .and_then(|s| s.split('(').next())
+                    .unwrap_or(&class_sig);
+                for (method_sig, line) in methods {
+                    let full_sig = format!("{}.{}", class_name, method_sig);
+                    all_entries.insert(full_sig, line);
                 }
             }
-            if let Ok(enums) = analysis::extract_enums(path) {
-                all_entries.extend(enums);
-            }
+        }
+        if let Ok(enums) = analysis::extract_enums(path) {
+            all_entries.extend(enums);
+        }
 
-            if all_entries.is_empty() { None } else { Some(all_entries) }
-        }),
-    };
+        if all_entries.is_empty() { None } else { Some(all_entries) }
+    });
+    let filtered = filter_files_output(collected, patterns, pattern::extract_dump_name);
+    let result = FilesOutput { files: filtered };
     output(&result, use_json)
 }
 

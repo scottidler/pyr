@@ -27,17 +27,37 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Command {
     /// List all functions with signatures and locations
-    Functions,
+    Function {
+        /// Patterns to filter by name (prefix match, then contains)
+        #[arg(value_name = "PATTERN")]
+        patterns: Vec<String>,
+    },
 
     /// List all classes with methods and inheritance
-    Classes,
+    Class {
+        /// Patterns to filter by name (prefix match, then contains)
+        #[arg(value_name = "PATTERN")]
+        patterns: Vec<String>,
+    },
 
     /// List all enum definitions
-    Enums,
+    Enum {
+        /// Patterns to filter by name (prefix match, then contains)
+        #[arg(value_name = "PATTERN")]
+        patterns: Vec<String>,
+    },
 
     /// Show module/package structure
-    Modules,
+    Module {
+        /// Patterns to filter by name (prefix match, then contains)
+        #[arg(value_name = "PATTERN")]
+        patterns: Vec<String>,
+    },
 
     /// Comprehensive output (functions, classes, enums)
-    Dump,
+    Dump {
+        /// Patterns to filter by name (prefix match, then contains)
+        #[arg(value_name = "PATTERN")]
+        patterns: Vec<String>,
+    },
 }

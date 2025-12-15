@@ -6,6 +6,10 @@ otto:
     VERSION: "$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')"
 
 tasks:
+  lint:
+    help: "Run some linting"
+    bash: |
+      whitespace -r
   check:
     help: "Run all quality checks (compile, clippy, format)"
     bash: |
@@ -37,7 +41,7 @@ tasks:
 
   ci:
     help: "Full CI pipeline (check + test in parallel)"
-    before: [check, test]
+    before: [lint, check, test]
     bash: |
       echo "✅ All CI checks passed!"
 

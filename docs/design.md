@@ -268,3 +268,4 @@ files: {}
 3. **clean output**: structured data to stdout, diagnostics to stderr
 4. **simple cli**: obvious defaults, minimal required flags
 5. **agent-friendly**: output optimized for llm token efficiency
+
