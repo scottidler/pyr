@@ -1,0 +1,19 @@
+[package]
+name = "pyr"
+version = "0.1.0"
+edition = "2024"
+authors = ["Scott Idler <scott.idler@gmail.com>"]
+build = "build.rs"
+description = "Fast Python codebase analysis for agentic LLMs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+eyre = "0.6"
+rayon = "1"
+rustpython-parser = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+walkdir = "2"
+
+[build-dependencies]

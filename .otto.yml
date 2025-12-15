@@ -1,0 +1,48 @@
+otto:
+  api: 1
+  tasks:
+    - check
+  envs:
+    VERSION: "$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')"
+
+tasks:
+  check:
+    help: "Run all quality checks (compile, clippy, format)"
+    bash: |
+      echo "=== Checking compilation ==="
+      cargo check
+      echo ""
+      echo "=== Running Clippy ==="
+      cargo clippy -- -D warnings
+      echo ""
+      echo "=== Checking format ==="
+      cargo fmt -- --check
+      echo ""
+      echo "✅ All checks passed!"
+
+  test:
+    help: "Run all tests"
+    bash: |
+      cargo test
+
+  coverage:
+    help: "Generate code coverage report with cargo-tarpaulin"
+    bash: |
+      echo "🧪 Running Tarpaulin coverage analysis..."
+      cargo tarpaulin --out Html --out Lcov --workspace --timeout 120
+      echo ""
+      echo "✅ Coverage reports generated:"
+      echo "  - HTML: target/tarpaulin-report.html"
+      echo "  - LCOV: target/lcov.info"
+
+  ci:
+    help: "Full CI pipeline (check + test in parallel)"
+    before: [check, test]
+    bash: |
+      echo "✅ All CI checks passed!"
+
+  clean:
+    help: "Clean build artifacts"
+    bash: |
+      cargo clean
+      echo "✅ Cleaned!"

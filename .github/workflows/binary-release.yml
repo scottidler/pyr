@@ -1,0 +1,86 @@
+name: binary-release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  RUST_VERSION: 1.83.0
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: linux
+          - os: macos-14
+            target: x86_64-apple-darwin
+            suffix: macos-x86_64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            suffix: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set GIT_DESCRIBE environment variable
+        run: |
+          GIT_DESCRIBE=$(git describe --tags --dirty --always)
+          echo "GIT_DESCRIBE=$GIT_DESCRIBE" >> $GITHUB_ENV
+
+      - name: Set up Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup target add ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v1-rust"
+          shared-key: ${{ matrix.target }}
+
+      - name: Build for ${{ matrix.target }}
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary
+        run: |
+          mkdir -p artifacts/
+          cp target/${{ matrix.target }}/release/pyr artifacts/
+
+      - name: Archive artifacts
+        run: |
+          tar -czvf pyr-${{ github.ref_name }}-${{ matrix.suffix }}.tar.gz -C artifacts pyr
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyr-${{ matrix.suffix }}
+          path: pyr-${{ github.ref_name }}-${{ matrix.suffix }}.*
+
+  create-release:
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 'artifacts/**'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
