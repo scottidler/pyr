@@ -1,7 +1,7 @@
 [package]
 name = "pyr"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["Scott Idler <scott.idler@gmail.com>"]
 build = "build.rs"
 description = "Fast Python codebase analysis for agentic LLMs"
