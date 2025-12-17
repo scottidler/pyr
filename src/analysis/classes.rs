@@ -1,5 +1,5 @@
 use crate::output::ClassInfo;
-use crate::parser::{ParsedFile, expr_to_string, extract_params, extract_returns, parse_file};
+use crate::parser::{expr_to_string, extract_params, extract_returns, parse_file, ParsedFile};
 use eyre::Result;
 use rustpython_parser::ast::{self, Arguments, Stmt};
 use std::collections::BTreeMap;
@@ -12,7 +12,11 @@ fn build_method_signature(method_name: &str, args: &Arguments, returns: Option<S
         .iter()
         .map(
             |(name, typ)| {
-                if typ == "..." { name.clone() } else { format!("{}: {}", name, typ) }
+                if typ == "..." {
+                    name.clone()
+                } else {
+                    format!("{}: {}", name, typ)
+                }
             },
         )
         .collect();

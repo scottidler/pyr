@@ -13,7 +13,7 @@ mod pattern;
 mod walk;
 
 use cli::{Cli, Command, Visibility};
-use output::{ClassInfo, ClassMap, ClassesOutput, FilesOutput, output, should_use_json};
+use output::{output, should_use_json, ClassInfo, ClassMap, ClassesOutput, FilesOutput};
 use pattern::{extract_class_name, extract_function_name, filter_classes_output, filter_files_output};
 
 fn main() -> Result<()> {
@@ -49,7 +49,11 @@ fn compute_functions(targets: &[PathBuf], patterns: &[String], visibility: Visib
     let files = walk::collect_python_files(targets)?;
     let collected = process_files_parallel(&files, |path| {
         let functions = analysis::extract_functions(path).ok()?;
-        if functions.is_empty() { None } else { Some(functions) }
+        if functions.is_empty() {
+            None
+        } else {
+            Some(functions)
+        }
     });
     let filtered = filter_files_output(collected, patterns, extract_function_name);
     let filtered = filter_by_visibility(filtered, visibility);
@@ -72,7 +76,11 @@ fn compute_classes(targets: &[PathBuf], patterns: &[String], visibility: Visibil
     let files = walk::collect_python_files(targets)?;
     let collected = process_classes_parallel(&files, |path| {
         let classes = analysis::extract_classes(path).ok()?;
-        if classes.is_empty() { None } else { Some(classes) }
+        if classes.is_empty() {
+            None
+        } else {
+            Some(classes)
+        }
     });
     let filtered = filter_classes_output(collected, patterns);
     let filtered = filter_classes_by_visibility(filtered, visibility);
@@ -95,7 +103,11 @@ fn compute_enums(targets: &[PathBuf], patterns: &[String]) -> Result<FilesOutput
     let files = walk::collect_python_files(targets)?;
     let collected = process_files_parallel(&files, |path| {
         let enums = analysis::extract_enums(path).ok()?;
-        if enums.is_empty() { None } else { Some(enums) }
+        if enums.is_empty() {
+            None
+        } else {
+            Some(enums)
+        }
     });
     let filtered = filter_files_output(collected, patterns, extract_class_name);
     Ok(FilesOutput { files: filtered })
@@ -158,7 +170,11 @@ fn compute_dump(targets: &[PathBuf], patterns: &[String]) -> Result<FilesOutput>
             all_entries.extend(enums);
         }
 
-        if all_entries.is_empty() { None } else { Some(all_entries) }
+        if all_entries.is_empty() {
+            None
+        } else {
+            Some(all_entries)
+        }
     });
     let filtered = filter_files_output(collected, patterns, pattern::extract_dump_name);
     Ok(FilesOutput { files: filtered })
@@ -232,7 +248,11 @@ fn filter_by_visibility(
                 })
                 .collect();
 
-            if filtered.is_empty() { None } else { Some((file_path, filtered)) }
+            if filtered.is_empty() {
+                None
+            } else {
+                Some((file_path, filtered))
+            }
         })
         .collect()
 }
@@ -478,7 +498,11 @@ mod tests {
         let files = vec![fixtures_dir().join("functions.py"), fixtures_dir().join("classes.py")];
         let result = process_files_parallel(&files, |path| {
             let functions = analysis::extract_functions(path).ok()?;
-            if functions.is_empty() { None } else { Some(functions) }
+            if functions.is_empty() {
+                None
+            } else {
+                Some(functions)
+            }
         });
 
         // functions.py should have functions, classes.py should have none at top level
@@ -497,7 +521,11 @@ mod tests {
         let files = vec![fixtures_dir().join("classes.py")];
         let result = process_classes_parallel(&files, |path| {
             let classes = analysis::extract_classes(path).ok()?;
-            if classes.is_empty() { None } else { Some(classes) }
+            if classes.is_empty() {
+                None
+            } else {
+                Some(classes)
+            }
         });
 
         assert!(!result.is_empty());
@@ -510,7 +538,11 @@ mod tests {
         let files = walk::collect_python_files(&targets).unwrap();
         let collected = process_files_parallel(&files, |path| {
             let functions = analysis::extract_functions(path).ok()?;
-            if functions.is_empty() { None } else { Some(functions) }
+            if functions.is_empty() {
+                None
+            } else {
+                Some(functions)
+            }
         });
         let filtered = filter_files_output(collected, &["simple".to_string()], extract_function_name);
         let filtered = filter_by_visibility(filtered, Visibility::All);
@@ -528,7 +560,11 @@ mod tests {
         let files = walk::collect_python_files(&targets).unwrap();
         let collected = process_classes_parallel(&files, |path| {
             let classes = analysis::extract_classes(path).ok()?;
-            if classes.is_empty() { None } else { Some(classes) }
+            if classes.is_empty() {
+                None
+            } else {
+                Some(classes)
+            }
         });
         let filtered = filter_classes_output(collected, &["Class".to_string()]);
         let filtered = filter_classes_by_visibility(filtered, Visibility::All);
@@ -542,7 +578,11 @@ mod tests {
         let files = walk::collect_python_files(&targets).unwrap();
         let collected = process_files_parallel(&files, |path| {
             let enums = analysis::extract_enums(path).ok()?;
-            if enums.is_empty() { None } else { Some(enums) }
+            if enums.is_empty() {
+                None
+            } else {
+                Some(enums)
+            }
         });
         let filtered = filter_files_output(collected, &["Color".to_string()], extract_class_name);
 
@@ -587,7 +627,11 @@ mod tests {
                 all_entries.extend(enums);
             }
 
-            if all_entries.is_empty() { None } else { Some(all_entries) }
+            if all_entries.is_empty() {
+                None
+            } else {
+                Some(all_entries)
+            }
         });
 
         assert!(!collected.is_empty());
@@ -601,7 +645,11 @@ mod tests {
         let files = walk::collect_python_files(&targets).unwrap();
         let collected = process_files_parallel(&files, |path| {
             let functions = analysis::extract_functions(path).ok()?;
-            if functions.is_empty() { None } else { Some(functions) }
+            if functions.is_empty() {
+                None
+            } else {
+                Some(functions)
+            }
         });
         let filtered = filter_files_output(collected, &[], extract_function_name);
         let public_only = filter_by_visibility(filtered.clone(), Visibility::Public);
@@ -620,7 +668,11 @@ mod tests {
         let files = walk::collect_python_files(&targets).unwrap();
         let collected = process_classes_parallel(&files, |path| {
             let classes = analysis::extract_classes(path).ok()?;
-            if classes.is_empty() { None } else { Some(classes) }
+            if classes.is_empty() {
+                None
+            } else {
+                Some(classes)
+            }
         });
         let filtered = filter_classes_output(collected, &[]);
         let public_only = filter_classes_by_visibility(filtered.clone(), Visibility::Public);

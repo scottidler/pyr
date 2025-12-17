@@ -11,7 +11,11 @@ fn build_function_signature(name: &str, args: &Arguments, returns: Option<String
         .iter()
         .map(
             |(name, typ)| {
-                if typ == "..." { name.clone() } else { format!("{}: {}", name, typ) }
+                if typ == "..." {
+                    name.clone()
+                } else {
+                    format!("{}: {}", name, typ)
+                }
             },
         )
         .collect();

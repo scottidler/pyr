@@ -1,5 +1,5 @@
 use eyre::Result;
-use rustpython_parser::{Parse, ast};
+use rustpython_parser::{ast, Parse};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
